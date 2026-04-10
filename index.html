@@ -3,681 +3,460 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MiTV Digital Life OS | Master Book Generator</title>
+    <title>MI AI - Quantum Core 3D</title>
     
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet">
 
     <style>
-        /* =====================================================================
-           [1] MASSIVE CSS VARIABLES & THEMING
-           ===================================================================== */
+        /* ================= CSS VARIABLES & RESET ================= */
         :root {
-            --bg-color: #050505; --surface-color: #121212; --panel-color: #1e1e1e;
-            --mitv-blue: #00f3ff; --mitv-purple: #bc13fe; --mitv-green: #00ff66;
-            --text-light: #ffffff; --text-muted: #a0a0a0;
-            --glass-bg: rgba(255, 255, 255, 0.05); --glass-border: rgba(255, 255, 255, 0.1);
-            --shadow-glow: 0 0 20px rgba(0, 243, 255, 0.3);
+            --primary-neon: #00ffcc;
+            --secondary-neon: #ff00ff;
+            --bg-glass: rgba(15, 23, 42, 0.7);
+            --border-glass: rgba(0, 255, 204, 0.2);
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
-        body { background-color: var(--bg-color); color: var(--text-light); overflow-x: hidden; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Rajdhani', sans-serif; }
+        body { background: #050505; color: white; overflow: hidden; height: 100vh; width: 100vw; }
+
+        /* ================= 3D CANVAS & BACKGROUND ================= */
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
+
+        /* ================= GLASSMORPHISM UI ================= */
+        .glass-panel {
+            background: var(--bg-glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        .neon-text {
+            font-family: 'Orbitron', sans-serif;
+            text-shadow: 0 0 10px var(--primary-neon), 0 0 20px var(--primary-neon);
+        }
+
+        .neon-border { box-shadow: 0 0 15px var(--primary-neon) inset, 0 0 15px var(--primary-neon); }
+
+        /* ================= APP LAYOUT ================= */
+        #app-container { display: none; height: 100vh; width: 100vw; flex-direction: column; }
+        
+        header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-glass); }
+        
+        main { flex: 1; display: flex; overflow: hidden; position: relative; }
+        
+        /* Views */
+        .view-section { display: none; width: 100%; height: 100%; flex-direction: column; padding: 20px; overflow-y: auto; }
+        .view-section.active { display: flex; animation: fadeIn 0.5s ease-in-out; }
+
+        /* Chat UI */
+        #chat-box { flex: 1; overflow-y: auto; padding-right: 10px; display: flex; flex-direction: column; gap: 15px; }
+        .msg { max-width: 80%; padding: 12px 18px; border-radius: 20px; font-size: 1.1rem; line-height: 1.4; animation: slideUp 0.3s ease; }
+        .msg-user { background: rgba(0, 255, 204, 0.1); border: 1px solid var(--primary-neon); align-self: flex-end; border-bottom-right-radius: 5px; }
+        .msg-ai { background: rgba(255, 0, 255, 0.1); border: 1px solid var(--secondary-neon); align-self: flex-start; border-bottom-left-radius: 5px; }
         
         /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: var(--bg-color); }
-        ::-webkit-scrollbar-thumb { background: linear-gradient(var(--mitv-blue), var(--mitv-purple)); border-radius: 10px; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--primary-neon); border-radius: 10px; }
 
-        /* =====================================================================
-           [2] AUTH & PIN SCREENS (BEAUTIFUL ANIMATIONS)
-           ===================================================================== */
-        .screen {
-            position: fixed; inset: 0; display: flex; flex-direction: column;
-            justify-content: center; align-items: center; background: var(--bg-color);
-            z-index: 1000; transition: opacity 0.5s ease;
-        }
-        .hidden { opacity: 0; pointer-events: none; z-index: -1; }
-        
-        .auth-box {
-            background: var(--glass-bg); padding: 40px; border-radius: 20px;
-            border: 1px solid var(--glass-border); text-align: center;
-            backdrop-filter: blur(15px); box-shadow: var(--shadow-glow);
-            animation: float 4s ease-in-out infinite; width: 90%; max-width: 400px;
-        }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        /* Bottom Nav (Mobile App Feel) */
+        footer { padding: 15px 20px; display: flex; justify-content: space-around; border-top: 1px solid var(--border-glass); background: rgba(0,0,0,0.5); }
+        .nav-btn { font-size: 1.5rem; color: #888; transition: 0.3s; cursor: pointer; }
+        .nav-btn.active { color: var(--primary-neon); text-shadow: 0 0 10px var(--primary-neon); transform: scale(1.1); }
 
-        .google-btn {
-            background: #fff; color: #000; padding: 12px 24px; border-radius: 30px;
-            font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 10px;
-            margin-top: 20px; transition: 0.3s; width: 100%; justify-content: center;
-        }
-        .google-btn:hover { transform: scale(1.05); box-shadow: 0 5px 15px rgba(255,255,255,0.3); }
+        /* Input Area */
+        .input-area { display: flex; gap: 10px; margin-top: 15px; }
+        input[type="text"] { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); color: white; padding: 15px; border-radius: 30px; outline: none; font-size: 1.1rem; }
+        input[type="text"]:focus { border-color: var(--primary-neon); box-shadow: 0 0 10px rgba(0,255,204,0.3); }
+        .send-btn { background: var(--primary-neon); color: black; border: none; width: 50px; height: 50px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; transition: 0.3s; }
+        .send-btn:hover { transform: scale(1.1); box-shadow: 0 0 15px var(--primary-neon); }
 
-        .pin-display { display: flex; gap: 15px; margin: 30px 0; }
-        .pin-dot { width: 20px; height: 20px; border: 2px solid var(--mitv-blue); border-radius: 50%; }
-        .pin-dot.filled { background: var(--mitv-blue); box-shadow: 0 0 10px var(--mitv-blue); }
-        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
-        .key-btn {
-            width: 70px; height: 70px; border-radius: 50%; background: var(--panel-color);
-            border: 1px solid var(--glass-border); color: #fff; font-size: 24px;
-            cursor: pointer; transition: 0.2s;
-        }
-        .key-btn:active { background: var(--mitv-blue); color: #000; }
+        /* ================= LOGIN SCREEN ================= */
+        #login-screen { position: fixed; inset: 0; display: flex; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(5px); }
+        .login-card { text-align: center; padding: 40px; width: 90%; max-width: 400px; }
+        .google-btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 15px; margin-top: 30px; background: white; color: #333; border-radius: 30px; font-weight: bold; font-size: 1.1rem; cursor: pointer; transition: 0.3s; }
+        .google-btn:hover { background: #eee; transform: translateY(-3px); }
 
-        /* =====================================================================
-           [3] MAIN DASHBOARD & CALENDAR
-           ===================================================================== */
-        .dashboard { padding: 20px; max-width: 1200px; margin: 0 auto; display: none; }
-        .header-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 1px solid var(--glass-border); padding-bottom: 15px; }
-        
-        .grid-layout { display: grid; grid-template-columns: 300px 1fr; gap: 30px; }
-        @media (max-width: 768px) { .grid-layout { grid-template-columns: 1fr; } }
-
-        /* Calendar Sidebar */
-        .calendar-widget { background: var(--surface-color); padding: 20px; border-radius: 15px; border: 1px solid var(--glass-border); }
-        .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; color: var(--mitv-purple); }
-        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
-        .cal-day { padding: 10px 0; border-radius: 8px; cursor: pointer; transition: 0.3s; font-size: 14px; }
-        .cal-day:hover { background: var(--glass-bg); }
-        .cal-day.active { background: var(--mitv-blue); color: #000; font-weight: bold; }
-        .cal-day.has-data { border-bottom: 2px solid var(--mitv-purple); }
-
-        /* Main Form Area */
-        .editor-panel { background: var(--surface-color); padding: 30px; border-radius: 15px; border: 1px solid var(--glass-border); }
-        .input-group { margin-bottom: 20px; }
-        .input-group label { display: block; margin-bottom: 8px; color: var(--mitv-blue); font-size: 14px; text-transform: uppercase; }
-        .mitv-input {
-            width: 100%; padding: 15px; background: var(--bg-color); border: 1px solid var(--glass-border);
-            border-radius: 10px; color: #fff; outline: none; transition: 0.3s;
-        }
-        .mitv-input:focus { border-color: var(--mitv-purple); }
-        
-        .action-btn {
-            background: linear-gradient(45deg, var(--mitv-blue), var(--mitv-purple));
-            color: #fff; border: none; padding: 15px 30px; border-radius: 10px;
-            font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; width: 100%;
-        }
-        .action-btn:hover { box-shadow: var(--shadow-glow); }
-
-        /* Media Controls */
-        .media-bar { display: flex; gap: 15px; margin-top: 20px; background: var(--panel-color); padding: 15px; border-radius: 10px; }
-        .media-btn { flex: 1; padding: 15px; border: none; border-radius: 8px; background: var(--glass-bg); color: #fff; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; transition: 0.3s; }
-        .media-btn:hover { background: var(--mitv-blue); color: #000; }
-        .recording { animation: pulseRed 1.5s infinite; background: rgba(255, 0, 0, 0.2) !important; color: #ff4444 !important; }
-        @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(255,0,0,0.4); } 70% { box-shadow: 0 0 0 10px rgba(255,0,0,0); } 100% { box-shadow: 0 0 0 0; } }
-
-        /* =====================================================================
-           [4] 3D HTML BOOK VIEWER (ANIMATED)
-           ===================================================================== */
-        #book-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2000;
-            display: none; justify-content: center; align-items: center; perspective: 1500px;
-        }
-        .book { width: 400px; height: 550px; position: relative; transform-style: preserve-3d; transition: transform 0.5s; }
-        @media (max-width: 500px) { .book { width: 300px; height: 450px; } }
-        
-        .page {
-            position: absolute; width: 100%; height: 100%; top: 0; left: 0;
-            background: #fff; color: #000; border-radius: 5px 20px 20px 5px;
-            transform-origin: left; transform-style: preserve-3d; transition: transform 0.8s cubic-bezier(0.645, 0.045, 0.355, 1);
-            box-shadow: inset 5px 0 20px rgba(0,0,0,0.2), 5px 5px 15px rgba(0,0,0,0.3);
-            display: flex; flex-direction: column; padding: 30px; overflow-y: auto;
-        }
-        .page.flipped { transform: rotateY(-180deg); }
-        
-        .book-close { position: absolute; top: 20px; right: 30px; color: #fff; font-size: 40px; cursor: pointer; z-index: 2001; }
-        .book-nav { position: absolute; bottom: -60px; left: 50%; transform: translateX(-50%); display: flex; gap: 20px; }
-        .b-btn { background: var(--mitv-blue); border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-
+        /* Animations */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulseLogo { 0% { text-shadow: 0 0 10px var(--primary-neon); } 50% { text-shadow: 0 0 30px var(--primary-neon), 0 0 50px var(--secondary-neon); } 100% { text-shadow: 0 0 10px var(--primary-neon); } }
     </style>
 </head>
 <body>
 
-    <div id="login-screen" class="screen">
-        <div class="auth-box">
-            <h1 style="color: var(--mitv-blue); font-size: 32px;">MiTV Life OS</h1>
-            <p style="color: var(--text-muted); margin-bottom: 30px;">Secure Firebase Authentication</p>
-            <div class="google-btn" onclick="AuthManager.loginWithGoogle()">
-                <i class="fab fa-google" style="color: #db4437; font-size: 20px;"></i> Continue with Google
-            </div>
+    <div id="canvas-container"></div>
+
+    <div id="login-screen">
+        <div class="glass-panel login-card">
+            <h1 class="neon-text text-5xl mb-2" style="animation: pulseLogo 2s infinite;">MI AI</h1>
+            <p class="text-gray-300 text-lg tracking-widest mb-6">QUANTUM CORE ENTERPRISE</p>
+            <div class="w-full h-px bg-gradient-to-r from-transparent via-teal-400 to-transparent my-4"></div>
+            <p class="text-sm text-teal-200 mt-4">Connect to the mainframe</p>
+            <button id="login-btn" class="google-btn">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" width="20" alt="G">
+                Initialize Secure Login
+            </button>
         </div>
     </div>
 
-    <div id="pin-screen" class="screen hidden">
-        <div class="auth-box">
-            <h2 id="pin-title" style="color: var(--mitv-purple);">Enter Security PIN</h2>
-            <p id="pin-subtitle" class="text-muted">Loading user profile...</p>
-            
-            <div class="pin-display" id="pin-dots">
-                <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
-            </div>
-
-            <div class="keypad">
-                <button class="key-btn" onclick="AuthManager.pressKey(1)">1</button>
-                <button class="key-btn" onclick="AuthManager.pressKey(2)">2</button>
-                <button class="key-btn" onclick="AuthManager.pressKey(3)">3</button>
-                <button class="key-btn" onclick="AuthManager.pressKey(4)">4</button>
-                <button class="key-btn" onclick="AuthManager.pressKey(5)">5</button>
-                <button class="key-btn" onclick="AuthManager.pressKey(6)">6</button>
-                <button class="key-btn" onclick="AuthManager.pressKey(7)">7</button>
-                <button class="key-btn" onclick="AuthManager.pressKey(8)">8</button>
-                <button class="key-btn" onclick="AuthManager.pressKey(9)">9</button>
-                <button class="key-btn" style="background: transparent; border: none;"></button>
-                <button class="key-btn" onclick="AuthManager.pressKey(0)">0</button>
-                <button class="key-btn" onclick="AuthManager.clearPin()" style="font-size: 16px;"><i class="fas fa-backspace"></i></button>
-            </div>
-        </div>
-    </div>
-
-    <div id="main-dashboard" class="dashboard">
-        <div class="header-nav">
-            <div>
-                <h2>Welcome, <span id="user-display-name" style="color: var(--mitv-blue);">Maaz</span></h2>
-                <p id="system-status" style="color: var(--mitv-green); font-size: 12px;">● Firebase Connected | Kasur Server</p>
-            </div>
-            <button onclick="AuthManager.logout()" style="background: transparent; border: 1px solid red; color: red; padding: 8px 15px; border-radius: 5px; cursor: pointer;">Logout</button>
-        </div>
-
-        <div class="grid-layout">
-            <div class="calendar-widget">
-                <div class="cal-header">
-                    <button onclick="CalendarEngine.prevMonth()" style="background:none;border:none;color:#fff;cursor:pointer;"><i class="fas fa-chevron-left"></i></button>
-                    <h3 id="cal-month-year">March 2026</h3>
-                    <button onclick="CalendarEngine.nextMonth()" style="background:none;border:none;color:#fff;cursor:pointer;"><i class="fas fa-chevron-right"></i></button>
+    <div id="app-container">
+        <header class="glass-panel mx-2 mt-2">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full border-2 border-teal-400 overflow-hidden">
+                    <img id="user-avatar" src="https://via.placeholder.com/150" alt="User">
                 </div>
-                <div class="cal-grid" style="color: var(--text-muted); font-size: 12px; margin-bottom: 10px;">
-                    <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+                <div>
+                    <h2 id="user-name" class="font-bold text-lg leading-tight">Agent</h2>
+                    <p class="text-xs text-teal-400 flex items-center gap-1"><i class="fas fa-circle text-[8px]"></i> Realtime Sync On</p>
                 </div>
-                <div id="calendar-days" class="cal-grid">
+            </div>
+            <button id="logout-btn" class="text-red-400 hover:text-red-300"><i class="fas fa-power-off text-xl"></i></button>
+        </header>
+
+        <main>
+            <div id="view-chat" class="view-section active">
+                <div id="chat-box" class="glass-panel p-4 mb-2">
+                    <div class="msg msg-ai neon-text text-sm mb-4 text-center mx-auto !bg-transparent !border-none">
+                        SYSTEM ONLINE. WELCOME TO MI AI CORE.
                     </div>
-                
-                <div style="margin-top: 30px; border-top: 1px solid var(--glass-border); padding-top: 20px;">
-                    <h4 style="color: var(--mitv-blue); margin-bottom: 10px;">Memory Actions</h4>
-                    <button onclick="BookEngine.generateBook()" class="action-btn" style="font-size: 14px; padding: 10px;">📖 Open 3D Story Book</button>
-                </div>
-            </div>
-
-            <div class="editor-panel">
-                <h3 style="margin-bottom: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;">
-                    Log for: <span id="selected-date-label" style="color: var(--mitv-blue);">Today</span>
-                </h3>
-
-                <div style="display: flex; gap: 15px;">
-                    <div class="input-group" style="flex: 1;">
-                        <label><i class="fas fa-bed"></i> Slept At</label>
-                        <input type="time" id="val-sleep" class="mitv-input">
                     </div>
-                    <div class="input-group" style="flex: 1;">
-                        <label><i class="fas fa-sun"></i> Woke Up</label>
-                        <input type="time" id="val-wake" class="mitv-input">
-                    </div>
+                <div class="input-area glass-panel p-2">
+                    <input type="text" id="ai-input" placeholder="Initiate quantum sequence..." autocomplete="off">
+                    <button id="send-btn" class="send-btn"><i class="fas fa-paper-plane"></i></button>
                 </div>
-
-                <div class="input-group">
-                    <label><i class="fas fa-utensils"></i> Meals Today</label>
-                    <input type="text" id="val-breakfast" class="mitv-input" placeholder="Breakfast (Nashta)..." style="margin-bottom: 10px;">
-                    <input type="text" id="val-lunch" class="mitv-input" placeholder="Lunch (Dopehar)..." style="margin-bottom: 10px;">
-                    <input type="text" id="val-dinner" class="mitv-input" placeholder="Dinner (Raat)...">
-                </div>
-
-                <div class="input-group">
-                    <label><i class="fas fa-book-open"></i> Today's Story / Reminder</label>
-                    <textarea id="val-story" class="mitv-input" rows="5" placeholder="Aaj ICS ki padhai mein kya kiya? Ya MiTV ka kya naya update hai?"></textarea>
-                </div>
-
-                <div class="media-bar">
-                    <button id="btn-location" class="media-btn" onclick="MediaEngine.getLocation()">
-                        <i class="fas fa-map-marker-alt" style="font-size: 20px;"></i> Add Location
-                    </button>
-                    <button id="btn-mic" class="media-btn" onclick="MediaEngine.toggleRecording()">
-                        <i class="fas fa-microphone" style="font-size: 20px;"></i> Record Audio
-                    </button>
-                    <label class="media-btn" style="cursor: pointer;">
-                        <i class="fas fa-camera" style="font-size: 20px;"></i> Add Image
-                        <input type="file" id="val-image" accept="image/*" style="display: none;" onchange="MediaEngine.handleImage(event)">
-                    </label>
-                </div>
-                
-                <div id="media-status" style="font-size: 12px; color: var(--mitv-green); margin: 10px 0;"></div>
-
-                <button onclick="DataEngine.saveDailyLog()" class="action-btn" style="margin-top: 20px;">
-                    <i class="fas fa-cloud-upload-alt"></i> SAVE TO FIREBASE SECURE CORE
-                </button>
             </div>
-        </div>
-    </div>
 
-    <div id="book-overlay">
-        <div class="book-close" onclick="BookEngine.closeBook()">&times;</div>
-        <div class="book" id="3d-book-container">
-            </div>
-        <div class="book-nav">
-            <button class="b-btn" onclick="BookEngine.prevPage()">Previous</button>
-            <button class="b-btn" onclick="BookEngine.nextPage()">Next Page</button>
-        </div>
-    </div>
-
-    <script>
-        // ---------------------------------------------------------
-        // A. FIREBASE SETUP (Replace with your actual config later)
-        // ---------------------------------------------------------
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT.firebaseapp.com",
-            databaseURL: "https://YOUR_PROJECT.firebaseio.com",
-            projectId: "YOUR_PROJECT",
-            storageBucket: "YOUR_PROJECT.appspot.com"
-        };
-        // Initialize Firebase
-        if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
-        const auth = firebase.auth();
-        const db = firebase.database();
-
-        let currentUser = null;
-        let selectedDateStr = new Date().toISOString().split('T')[0];
-
-        // ---------------------------------------------------------
-        // B. AUTHENTICATION & PIN MANAGER
-        // ---------------------------------------------------------
-        const AuthManager = {
-            pinBuffer: "",
-            isSettingPin: false,
-            expectedPin: null,
-
-            init() {
-                auth.onAuthStateChanged(user => {
-                    if (user) {
-                        currentUser = user;
-                        document.getElementById('login-screen').classList.add('hidden');
-                        document.getElementById('user-display-name').innerText = user.displayName;
-                        this.checkUserPin();
-                    } else {
-                        document.getElementById('login-screen').classList.remove('hidden');
-                        document.getElementById('main-dashboard').style.display = 'none';
-                    }
-                });
-            },
-            loginWithGoogle() {
-                const provider = new firebase.auth.GoogleAuthProvider();
-                auth.signInWithPopup(provider).catch(error => alert("Login Failed: " + error.message));
-            },
-            logout() { auth.signOut(); location.reload(); },
-            
-            checkUserPin() {
-                // Check Firebase for existing PIN
-                db.ref('users/' + currentUser.uid + '/security/pin').once('value', snapshot => {
-                    const pin = snapshot.val();
-                    document.getElementById('pin-screen').classList.remove('hidden');
-                    
-                    if (pin) {
-                        this.isSettingPin = false;
-                        this.expectedPin = pin;
-                        document.getElementById('pin-title').innerText = "Enter Security PIN";
-                        document.getElementById('pin-subtitle').innerText = "To unlock your diary";
-                    } else {
-                        this.isSettingPin = true;
-                        document.getElementById('pin-title').innerText = "Create New PIN";
-                        document.getElementById('pin-subtitle').innerText = "Set a 4-digit security code";
-                    }
-                });
-            },
-            pressKey(num) {
-                if (this.pinBuffer.length < 4) {
-                    this.pinBuffer += num;
-                    this.updateDots();
-                    if (this.pinBuffer.length === 4) {
-                        setTimeout(() => this.processPin(), 300);
-                    }
-                }
-            },
-            clearPin() { this.pinBuffer = ""; this.updateDots(); },
-            updateDots() {
-                const dots = document.querySelectorAll('.pin-dot');
-                dots.forEach((dot, index) => {
-                    if (index < this.pinBuffer.length) dot.classList.add('filled');
-                    else dot.classList.remove('filled');
-                });
-            },
-            processPin() {
-                if (this.isSettingPin) {
-                    // Save new PIN to Firebase
-                    db.ref('users/' + currentUser.uid + '/security/pin').set(this.pinBuffer)
-                        .then(() => {
-                            alert("PIN Set Successfully!");
-                            this.unlockDashboard();
-                        });
-                } else {
-                    // Verify PIN
-                    if (this.pinBuffer === this.expectedPin) {
-                        this.unlockDashboard();
-                    } else {
-                        alert("Incorrect PIN!");
-                        this.clearPin();
-                    }
-                }
-            },
-            unlockDashboard() {
-                document.getElementById('pin-screen').classList.add('hidden');
-                document.getElementById('main-dashboard').style.display = 'block';
-                CalendarEngine.init();
-                DataEngine.loadDailyLog(selectedDateStr);
-            }
-        };
-
-        // ---------------------------------------------------------
-        // C. CALENDAR ENGINE (Date Math & UI)
-        // ---------------------------------------------------------
-        const CalendarEngine = {
-            currentDate: new Date(),
-            
-            init() { this.renderCalendar(); },
-            renderCalendar() {
-                const year = this.currentDate.getFullYear();
-                const month = this.currentDate.getMonth();
-                
-                const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-                document.getElementById('cal-month-year').innerText = `${monthNames[month]} ${year}`;
-                
-                const firstDay = new Date(year, month, 1).getDay();
-                const daysInMonth = new Date(year, month + 1, 0).getDate();
-                
-                const calGrid = document.getElementById('calendar-days');
-                calGrid.innerHTML = '';
-                
-                // Empty slots
-                for (let i = 0; i < firstDay; i++) {
-                    calGrid.innerHTML += `<div></div>`;
-                }
-                
-                // Days
-                for (let i = 1; i <= daysInMonth; i++) {
-                    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
-                    const div = document.createElement('div');
-                    div.className = 'cal-day';
-                    div.innerText = i;
-                    
-                    if (dateStr === selectedDateStr) div.classList.add('active');
-                    
-                    div.onclick = () => {
-                        selectedDateStr = dateStr;
-                        document.getElementById('selected-date-label').innerText = dateStr;
-                        this.renderCalendar();
-                        DataEngine.loadDailyLog(dateStr);
-                    };
-                    calGrid.appendChild(div);
-                }
-                
-                // Highlight days that have data in Firebase
-                this.checkDaysWithData(year, month);
-            },
-            checkDaysWithData(year, month) {
-                if(!currentUser) return;
-                const monthPrefix = `${year}-${String(month+1).padStart(2,'0')}`;
-                db.ref('users/' + currentUser.uid + '/logs').orderByKey().startAt(monthPrefix + "-01").endAt(monthPrefix + "-31")
-                  .once('value', snap => {
-                      const data = snap.val();
-                      if(data) {
-                          const days = document.querySelectorAll('.cal-day');
-                          days.forEach(day => {
-                              const dStr = `${monthPrefix}-${String(day.innerText).padStart(2,'0')}`;
-                              if(data[dStr]) day.classList.add('has-data');
-                          });
-                      }
-                  });
-            },
-            prevMonth() { this.currentDate.setMonth(this.currentDate.getMonth() - 1); this.renderCalendar(); },
-            nextMonth() { this.currentDate.setMonth(this.currentDate.getMonth() + 1); this.renderCalendar(); }
-        };
-
-        // ---------------------------------------------------------
-        // D. HARDWARE & MEDIA ENGINE (Mic, Geo, Image)
-        // ---------------------------------------------------------
-        const MediaEngine = {
-            currentLocation: null,
-            audioBase64: null,
-            imageBase64: null,
-            mediaRecorder: null,
-            audioChunks: [],
-            isRecording: false,
-
-            getLocation() {
-                const status = document.getElementById('media-status');
-                status.innerText = "Fetching GPS Location...";
-                if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(pos => {
-                        this.currentLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                        status.innerText = `Location Saved! (Lat: ${pos.coords.latitude.toFixed(2)})`;
-                        document.getElementById('btn-location').style.background = "var(--mitv-green)";
-                        document.getElementById('btn-location').style.color = "#000";
-                    }, err => alert("GPS Error: " + err.message));
-                } else {
-                    alert("Geolocation not supported by this browser.");
-                }
-            },
-            
-            async toggleRecording() {
-                const btn = document.getElementById('btn-mic');
-                const status = document.getElementById('media-status');
-
-                if (!this.isRecording) {
-                    try {
-                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                        this.mediaRecorder = new MediaRecorder(stream);
-                        this.audioChunks = [];
-                        
-                        this.mediaRecorder.ondataavailable = e => this.audioChunks.push(e.data);
-                        this.mediaRecorder.onstop = () => {
-                            const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-                            const reader = new FileReader();
-                            reader.readAsDataURL(audioBlob);
-                            reader.onloadend = () => {
-                                this.audioBase64 = reader.result;
-                                status.innerText = "Audio Voice Note Saved!";
-                                btn.style.background = "var(--mitv-green)";
-                                btn.style.color = "#000";
-                            }
-                        };
-                        
-                        this.mediaRecorder.start();
-                        this.isRecording = true;
-                        btn.classList.add('recording');
-                        btn.innerHTML = '<i class="fas fa-stop"></i> Stop Rec';
-                        status.innerText = "Recording Mic...";
-                    } catch (err) { alert("Mic Access Denied: " + err.message); }
-                } else {
-                    this.mediaRecorder.stop();
-                    this.isRecording = false;
-                    btn.classList.remove('recording');
-                    btn.innerHTML = '<i class="fas fa-microphone"></i> Audio Saved';
-                }
-            },
-
-            handleImage(event) {
-                const file = event.target.files[0];
-                if(file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        this.imageBase64 = e.target.result;
-                        document.getElementById('media-status').innerText = "Image Uploaded to Memory!";
-                    };
-                    reader.readAsDataURL(file);
-                }
-            },
-            
-            clearMedia() {
-                this.currentLocation = null; this.audioBase64 = null; this.imageBase64 = null;
-                document.getElementById('media-status').innerText = "";
-                document.getElementById('btn-location').style = "";
-                document.getElementById('btn-mic').innerHTML = '<i class="fas fa-microphone"></i> Record Audio';
-                document.getElementById('btn-mic').style = "";
-            }
-        };
-
-        // ---------------------------------------------------------
-        // E. DATA ENGINE (Save & Load to Firebase Realtime DB)
-        // ---------------------------------------------------------
-        const DataEngine = {
-            saveDailyLog() {
-                const data = {
-                    sleep: document.getElementById('val-sleep').value,
-                    wake: document.getElementById('val-wake').value,
-                    breakfast: document.getElementById('val-breakfast').value,
-                    lunch: document.getElementById('val-lunch').value,
-                    dinner: document.getElementById('val-dinner').value,
-                    story: document.getElementById('val-story').value,
-                    location: MediaEngine.currentLocation,
-                    audio: MediaEngine.audioBase64,
-                    image: MediaEngine.imageBase64,
-                    timestamp: new Date().getTime()
-                };
-
-                db.ref('users/' + currentUser.uid + '/logs/' + selectedDateStr).set(data)
-                    .then(() => {
-                        alert("✅ Log Saved to Firebase Securely!");
-                        CalendarEngine.renderCalendar(); // Refresh calendar dots
-                    })
-                    .catch(e => alert("Error saving: " + e.message));
-            },
-
-            loadDailyLog(dateStr) {
-                // Clear UI first
-                document.getElementById('val-sleep').value = ''; document.getElementById('val-wake').value = '';
-                document.getElementById('val-breakfast').value = ''; document.getElementById('val-lunch').value = '';
-                document.getElementById('val-dinner').value = ''; document.getElementById('val-story').value = '';
-                MediaEngine.clearMedia();
-
-                if(!currentUser) return;
-                
-                db.ref('users/' + currentUser.uid + '/logs/' + dateStr).once('value', snapshot => {
-                    const data = snapshot.val();
-                    if(data) {
-                        if(data.sleep) document.getElementById('val-sleep').value = data.sleep;
-                        if(data.wake) document.getElementById('val-wake').value = data.wake;
-                        if(data.breakfast) document.getElementById('val-breakfast').value = data.breakfast;
-                        if(data.lunch) document.getElementById('val-lunch').value = data.lunch;
-                        if(data.dinner) document.getElementById('val-dinner').value = data.dinner;
-                        if(data.story) document.getElementById('val-story').value = data.story;
-                        
-                        // Note: To keep DB lightweight, media base64 might need Firebase Storage in real production,
-                        // but storing in Realtime DB works for this exact requirement constraints.
-                    }
-                });
-            }
-        };
-
-        // ---------------------------------------------------------
-        // F. 3D HTML BOOK GENERATOR (The Magic Logic)
-        // ---------------------------------------------------------
-        const BookEngine = {
-            currentPage: 0,
-            totalPages: 0,
-            
-            generateBook() {
-                if(!currentUser) return;
-                
-                // Fetch all data to create book
-                db.ref('users/' + currentUser.uid + '/logs').orderByKey().once('value', snapshot => {
-                    const allLogs = snapshot.val();
-                    if(!allLogs) { alert("No memory logs found to create a book."); return; }
-                    
-                    const bookContainer = document.getElementById('3d-book-container');
-                    bookContainer.innerHTML = '';
-                    
-                    // Cover Page
-                    this.createPageElement("book-cover", `
-                        <h1 style="font-size: 30px; margin-top: 50px; text-align:center; color: var(--mitv-blue);">My Life Diary</h1>
-                        <h3 style="text-align:center; margin-top: 20px;">Author: Maaz Iqbal</h3>
-                        <div style="text-align:center; margin-top: 100px;"><i class="fas fa-book" style="font-size: 80px; color: #ccc;"></i></div>
-                    `, 0);
-
-                    let pageIndex = 1;
-                    
-                    // Content Pages (Looping through Firebase Data)
-                    for(const [date, data] of Object.entries(allLogs)) {
-                        let htmlContent = `
-                            <h2 style="border-bottom: 2px solid #ccc; padding-bottom: 10px; color: #333;">${date}</h2>
-                            <p><strong>Sleep Cycle:</strong> ${data.sleep || '--'} to ${data.wake || '--'}</p>
-                            <div style="margin: 15px 0; font-style: italic; color: #555;">
-                                <p><strong>Nashta:</strong> ${data.breakfast || 'N/A'}</p>
-                                <p><strong>Dopehar:</strong> ${data.lunch || 'N/A'}</p>
-                                <p><strong>Raat:</strong> ${data.dinner || 'N/A'}</p>
-                            </div>
-                            <p style="font-size: 14px; line-height: 1.6;">${data.story || 'No story written for this day.'}</p>
-                        `;
-                        
-                        if(data.image) {
-                            htmlContent += `<div style="margin-top:15px; text-align:center;"><img src="${data.image}" style="max-width:100%; max-height: 120px; border-radius:10px; box-shadow:0 5px 10px rgba(0,0,0,0.2);"></div>`;
-                        }
-                        if(data.location) {
-                            htmlContent += `<p style="margin-top: 10px; font-size: 10px; color: blue;">📍 GPS Recorded (Lat: ${data.location.lat.toFixed(4)})</p>`;
-                        }
-                        if(data.audio) {
-                            htmlContent += `<audio controls src="${data.audio}" style="width: 100%; margin-top: 10px; height: 30px;"></audio>`;
-                        }
-
-                        this.createPageElement("page-" + pageIndex, htmlContent, pageIndex);
-                        pageIndex++;
-                    }
-                    
-                    // Back Cover
-                    this.createPageElement("book-back", `
-                        <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%;">
-                            <h3>The End</h3>
-                            <p style="font-size: 12px; margin-top: 20px;">Powered by MiTV Network Engine</p>
+            <div id="view-dashboard" class="view-section">
+                <div class="glass-panel p-6 h-full overflow-y-auto">
+                    <h2 class="neon-text text-3xl mb-6">DATA ANALYSIS</h2>
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="bg-black/50 p-4 rounded-xl border border-teal-400/30 text-center">
+                            <h3 class="text-teal-400 text-sm">Total Queries</h3>
+                            <p id="stat-queries" class="text-3xl font-bold">0</p>
                         </div>
-                    `, pageIndex);
+                        <div class="bg-black/50 p-4 rounded-xl border border-fuchsia-400/30 text-center">
+                            <h3 class="text-fuchsia-400 text-sm">System Load</h3>
+                            <p class="text-3xl font-bold">98%</p>
+                        </div>
+                    </div>
+                    <div class="w-full bg-black/50 p-4 rounded-xl border border-teal-400/30">
+                        <canvas id="activityChart"></canvas>
+                    </div>
+                </div>
+            </div>
 
-                    this.totalPages = pageIndex;
-                    this.currentPage = 0;
-                    
-                    document.getElementById('book-overlay').style.display = 'flex';
-                });
-            },
-            
-            createPageElement(id, content, zIndexInverse) {
-                const page = document.createElement('div');
-                page.className = 'page';
-                page.id = 'b-page-' + zIndexInverse;
-                // Reverse z-index so first page is on top
-                page.style.zIndex = 100 - zIndexInverse;
-                page.innerHTML = content;
-                document.getElementById('3d-book-container').appendChild(page);
-            },
-            
-            nextPage() {
-                if(this.currentPage <= this.totalPages) {
-                    const page = document.getElementById('b-page-' + this.currentPage);
-                    if(page) {
-                        page.classList.add('flipped');
-                        this.currentPage++;
-                    }
-                }
-            },
-            
-            prevPage() {
-                if(this.currentPage > 0) {
-                    this.currentPage--;
-                    const page = document.getElementById('b-page-' + this.currentPage);
-                    if(page) {
-                        page.classList.remove('flipped');
-                    }
-                }
-            },
-            
-            closeBook() {
-                document.getElementById('book-overlay').style.display = 'none';
+            <div id="view-settings" class="view-section">
+                <div class="glass-panel p-6 h-full">
+                    <h2 class="neon-text text-3xl mb-6">CORE CONFIG</h2>
+                    <div class="space-y-4">
+                        <div class="p-4 bg-black/40 rounded-xl">
+                            <label class="block text-teal-400 text-sm mb-2">MI AI Engine Power</label>
+                            <input type="range" class="w-full accent-teal-400">
+                        </div>
+                        <div class="p-4 bg-black/40 rounded-xl">
+                            <label class="block text-teal-400 text-sm mb-2">Developer info</label>
+                            <p class="text-white text-lg">Architect: Muaaz Iqbal</p>
+                            <p class="text-gray-400 text-sm">Muslim Islam Enterprise</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="glass-panel mx-2 mb-2 rounded-full">
+            <i class="fas fa-comment-dots nav-btn active" data-target="view-chat"></i>
+            <i class="fas fa-chart-pie nav-btn" data-target="view-dashboard"></i>
+            <i class="fas fa-cog nav-btn" data-target="view-settings"></i>
+        </footer>
+    </div>
+
+    <script type="module">
+        // 1. IMPORT FIREBASE V10 SDK (Modern Module Approach)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getDatabase, ref, push, onValue, serverTimestamp, set, get } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+
+        // 2. FIREBASE CONFIG (Tumhari Di Gayi Details)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBbnU8DkthpYQMHOLLyj6M0cc05qXfjMcw",
+            authDomain: "ramadan-2385b.firebaseapp.com",
+            databaseURL: "https://ramadan-2385b-default-rtdb.firebaseio.com",
+            projectId: "ramadan-2385b",
+            storageBucket: "ramadan-2385b.firebasestorage.app",
+            messagingSenderId: "882828936310",
+            appId: "1:882828936310:web:7f97b921031fe130fe4b57"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+        const provider = new GoogleAuthProvider();
+
+        // App State
+        let currentUser = null;
+        let queryCount = 0;
+
+        // UI Elements
+        const loginScreen = document.getElementById('login-screen');
+        const appContainer = document.getElementById('app-container');
+        const loginBtn = document.getElementById('login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const userNameEl = document.getElementById('user-name');
+        const userAvatarEl = document.getElementById('user-avatar');
+        
+        // Chat UI
+        const chatBox = document.getElementById('chat-box');
+        const aiInput = document.getElementById('ai-input');
+        const sendBtn = document.getElementById('send-btn');
+        const statQueries = document.getElementById('stat-queries');
+
+        // ================= AUTHENTICATION LOGIC =================
+        
+        loginBtn.addEventListener('click', async () => {
+            try {
+                loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Initializing...';
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                console.error("Login Error:", error);
+                alert("Login Failed: " + error.message);
+                loginBtn.innerHTML = 'Initialize Secure Login';
             }
-        };
+        });
 
-        // Initialize App
-        window.onload = () => {
-            AuthManager.init();
-        };
+        logoutBtn.addEventListener('click', () => {
+            signOut(auth);
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                loginScreen.style.display = 'none';
+                appContainer.style.display = 'flex';
+                userNameEl.innerText = user.displayName;
+                userAvatarEl.src = user.photoURL;
+                
+                // Save user to DB & Load Chats
+                saveUserToDB(user);
+                loadChats();
+                initChart();
+            } else {
+                currentUser = null;
+                loginScreen.style.display = 'flex';
+                appContainer.style.display = 'none';
+                loginBtn.innerHTML = '<img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" width="20" alt="G"> Initialize Secure Login';
+            }
+        });
+
+        // ================= DATABASE LOGIC =================
+
+        function saveUserToDB(user) {
+            const userRef = ref(db, 'users/' + user.uid);
+            set(userRef, {
+                name: user.displayName,
+                email: user.email,
+                lastLogin: serverTimestamp()
+            });
+        }
+
+        function loadChats() {
+            if (!currentUser) return;
+            const chatRef = ref(db, `chats/${currentUser.uid}`);
+            
+            // Listen for realtime updates
+            onValue(chatRef, (snapshot) => {
+                chatBox.innerHTML = ''; // Clear box
+                queryCount = 0;
+                
+                if (snapshot.exists()) {
+                    snapshot.forEach((childSnapshot) => {
+                        const data = childSnapshot.val();
+                        appendMessage(data.text, data.sender === 'user' ? 'msg-user' : 'msg-ai', false);
+                        if(data.sender === 'user') queryCount++;
+                    });
+                    statQueries.innerText = queryCount;
+                } else {
+                    appendMessage("SYSTEM ONLINE. WELCOME TO MI AI CORE.", 'msg-ai', false);
+                }
+                scrollToBottom();
+            });
+        }
+
+        async function processUserMessage() {
+            const text = aiInput.value.trim();
+            if (!text || !currentUser) return;
+
+            // 1. Show user message instantly
+            aiInput.value = '';
+            
+            // 2. Save user message to Firebase
+            const chatRef = ref(db, `chats/${currentUser.uid}`);
+            await push(chatRef, {
+                text: text,
+                sender: 'user',
+                timestamp: serverTimestamp()
+            });
+
+            // 3. Simulate AI typing & Response (Since frontend)
+            setTimeout(async () => {
+                // Here you would normally call your backend Python API (Gemini/Groq)
+                // For this pure HTML demo, we simulate a smart response.
+                const aiResponse = generateSmartResponse(text);
+                
+                // Save AI response to Firebase
+                await push(chatRef, {
+                    text: aiResponse,
+                    sender: 'ai',
+                    timestamp: serverTimestamp()
+                });
+            }, 1500);
+        }
+
+        function appendMessage(text, className, animate = true) {
+            const div = document.createElement('div');
+            div.className = `msg ${className}`;
+            if(!animate) div.style.animation = 'none';
+            // Parse basic markdown for bold/code
+            let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+            formattedText = formattedText.replace(/`(.*?)`/g, '<code class="bg-black/50 px-1 rounded text-teal-300">$1</code>');
+            div.innerHTML = formattedText;
+            chatBox.appendChild(div);
+        }
+
+        function scrollToBottom() {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // Mock AI Brain logic
+        function generateSmartResponse(prompt) {
+            const p = prompt.toLowerCase();
+            if(p.includes('code') || p.includes('html')) return "Initializing Code Compiler... Generating `HTML5` structure. The integration of Firebase Realtime modules is optimal.";
+            if(p.includes('muaaz') || p.includes('creator')) return "I was architected by the visionary **Muaaz Iqbal**. Organization: **Muslim Islam**.";
+            if(p.includes('dhmaka') || p.includes('pro')) return "🚀 Initiating MAX PRO Mode! System operating at 100% capacity. Database synced.";
+            return "Query processed. MI AI Quantum Core is analyzing the parameters of: '" + prompt + "'. Data recorded in Firebase.";
+        }
+
+        // Event Listeners for Chat
+        sendBtn.addEventListener('click', processUserMessage);
+        aiInput.addEventListener('keypress', (e) => {
+            if(e.key === 'Enter') processUserMessage();
+        });
+
+        // ================= UI NAVIGATION =================
+        const navBtns = document.querySelectorAll('.nav-btn');
+        const views = document.querySelectorAll('.view-section');
+
+        navBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Update buttons
+                navBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                // Update views
+                const target = btn.getAttribute('data-target');
+                views.forEach(v => {
+                    v.classList.remove('active');
+                    if(v.id === target) v.classList.add('active');
+                });
+            });
+        });
+
+        // ================= CHART.JS (DASHBOARD) =================
+        function initChart() {
+            const ctx = document.getElementById('activityChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Neural Network Activity',
+                        data: [12, 19, 3, 5, 2, 3, 20],
+                        borderColor: '#00ffcc',
+                        backgroundColor: 'rgba(0, 255, 204, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        x: { grid: { display: false, color: 'rgba(255,255,255,0.1)' }, ticks: {color: '#888'} },
+                        y: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: {color: '#888'} }
+                    }
+                }
+            });
+        }
+
+        // ================= THREE.JS 3D BACKGROUND (THE DHMAKA) =================
+        const canvasContainer = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        canvasContainer.appendChild(renderer.domElement);
+
+        // Create Particles
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 2000;
+        const posArray = new Float32Array(particlesCount * 3);
+
+        for(let i = 0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 10;
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        
+        // Material
+        const material = new THREE.PointsMaterial({
+            size: 0.015,
+            color: 0x00ffcc,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
+        });
+
+        const particlesMesh = new THREE.Points(particlesGeometry, material);
+        scene.add(particlesMesh);
+        camera.position.z = 3;
+
+        // Mouse Interaction
+        let mouseX = 0;
+        let mouseY = 0;
+        document.addEventListener('mousemove', (event) => {
+            mouseX = event.clientX / window.innerWidth - 0.5;
+            mouseY = event.clientY / window.innerHeight - 0.5;
+        });
+
+        // Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+            particlesMesh.rotation.y += 0.001;
+            particlesMesh.rotation.x += 0.0005;
+            
+            // Subtle interactive movement
+            particlesMesh.rotation.y += mouseX * 0.01;
+            particlesMesh.rotation.x += mouseY * 0.01;
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Handle Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
 
     </script>
 </body>
